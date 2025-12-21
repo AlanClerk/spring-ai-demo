@@ -1,11 +1,10 @@
 package org.alanzheng.demo.springaidemo.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.alanzheng.demo.springaidemo.dto.ChatRequest;
 import org.alanzheng.demo.springaidemo.dto.ChatResponse;
 import org.alanzheng.demo.springaidemo.service.ChatbotService;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,11 +15,10 @@ import java.util.UUID;
  * 聊天控制器
  * 提供REST API接口与Chatbot交互
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/chat")
 public class ChatController {
-    
-    private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
     
     private final ChatbotService chatbotService;
     
@@ -38,21 +36,21 @@ public class ChatController {
     @GetMapping("/simple")
     public ResponseEntity<String> simpleChat(@RequestParam String message) {
         long startTime = System.currentTimeMillis();
-        logger.info("收到简单聊天请求，消息: {}", message);
+        log.info("收到简单聊天请求，消息: {}", message);
         
         if (StringUtils.isBlank(message)) {
-            logger.warn("简单聊天请求参数验证失败，消息为空");
+            log.warn("简单聊天请求参数验证失败，消息为空");
             return ResponseEntity.badRequest().body("消息内容不能为空");
         }
         
         try {
             String reply = chatbotService.chat(message);
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("简单聊天请求处理成功，总耗时: {}ms", duration);
+            log.info("简单聊天请求处理成功，总耗时: {}ms", duration);
             return ResponseEntity.ok(reply);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("简单聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            log.error("简单聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body("处理请求时发生错误: " + e.getMessage());
         }
@@ -67,13 +65,13 @@ public class ChatController {
     @PostMapping
     public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
         long startTime = System.currentTimeMillis();
-        logger.info("收到标准聊天请求，消息: {}，对话ID: {}", 
+        log.info("收到标准聊天请求，消息: {}，对话ID: {}", 
                 Objects.nonNull(request) ? request.getMessage() : "null",
                 Objects.nonNull(request) ? request.getConversationId() : "null");
         
         // 参数校验
         if (Objects.isNull(request) || StringUtils.isBlank(request.getMessage())) {
-            logger.warn("标准聊天请求参数验证失败，请求对象或消息为空");
+            log.warn("标准聊天请求参数验证失败，请求对象或消息为空");
             return ResponseEntity.badRequest().build();
         }
         
@@ -92,11 +90,11 @@ public class ChatController {
                     .build();
             
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("标准聊天请求处理成功，总耗时: {}ms，对话ID: {}", duration, conversationId);
+            log.info("标准聊天请求处理成功，总耗时: {}ms，对话ID: {}", duration, conversationId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("标准聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            log.error("标准聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -114,10 +112,10 @@ public class ChatController {
             @RequestParam String message) {
         
         long startTime = System.currentTimeMillis();
-        logger.info("收到带系统提示的聊天请求，系统提示: {}，用户消息: {}", systemPrompt, message);
+        log.info("收到带系统提示的聊天请求，系统提示: {}，用户消息: {}", systemPrompt, message);
         
         if (StringUtils.isBlank(message)) {
-            logger.warn("带系统提示的聊天请求参数验证失败，消息为空");
+            log.warn("带系统提示的聊天请求参数验证失败，消息为空");
             return ResponseEntity.badRequest().build();
         }
         
@@ -132,11 +130,11 @@ public class ChatController {
                     .build();
             
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("带系统提示的聊天请求处理成功，总耗时: {}ms，对话ID: {}", duration, conversationId);
+            log.info("带系统提示的聊天请求处理成功，总耗时: {}ms，对话ID: {}", duration, conversationId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("带系统提示的聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            log.error("带系统提示的聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }

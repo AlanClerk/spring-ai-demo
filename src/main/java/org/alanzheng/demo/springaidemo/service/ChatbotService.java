@@ -1,8 +1,7 @@
 package org.alanzheng.demo.springaidemo.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,10 +13,9 @@ import java.util.Objects;
  * Chatbot服务类
  * 使用Spring AI的ChatClient进行对话
  */
+@Slf4j
 @Service
 public class ChatbotService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(ChatbotService.class);
     
     private static final int MAX_LOG_MESSAGE_LENGTH = 200;
     
@@ -42,7 +40,7 @@ public class ChatbotService {
         long startTime = System.currentTimeMillis();
         String truncatedMessage = truncateMessage(message);
         
-        logger.info("开始调用chat方法，用户消息: {}", truncatedMessage);
+        log.info("开始调用chat方法，用户消息: {}", truncatedMessage);
         
         try {
             if (StringUtils.isBlank(message)) {
@@ -61,12 +59,12 @@ public class ChatbotService {
             
             long duration = System.currentTimeMillis() - startTime;
             String truncatedResponse = truncateMessage(response);
-            logger.info("chat方法调用成功，耗时: {}ms，AI回复: {}", duration, truncatedResponse);
+            log.info("chat方法调用成功，耗时: {}ms，AI回复: {}", duration, truncatedResponse);
             
             return response;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("chat方法调用失败，耗时: {}ms，用户消息: {}，错误信息: {}", 
+            log.error("chat方法调用失败，耗时: {}ms，用户消息: {}，错误信息: {}", 
                     duration, truncatedMessage, e.getMessage(), e);
             throw e;
         }
@@ -84,7 +82,7 @@ public class ChatbotService {
         String truncatedSystemPrompt = truncateMessage(systemPrompt);
         String truncatedUserMessage = truncateMessage(userMessage);
         
-        logger.info("开始调用chatWithSystemPrompt方法，系统提示: {}，用户消息: {}", 
+        log.info("开始调用chatWithSystemPrompt方法，系统提示: {}，用户消息: {}", 
                 truncatedSystemPrompt, truncatedUserMessage);
         
         try {
@@ -109,13 +107,13 @@ public class ChatbotService {
             
             long duration = System.currentTimeMillis() - startTime;
             String truncatedResponse = truncateMessage(response);
-            logger.info("chatWithSystemPrompt方法调用成功，耗时: {}ms，AI回复: {}", 
+            log.info("chatWithSystemPrompt方法调用成功，耗时: {}ms，AI回复: {}", 
                     duration, truncatedResponse);
             
             return response;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("chatWithSystemPrompt方法调用失败，耗时: {}ms，系统提示: {}，用户消息: {}，错误信息: {}", 
+            log.error("chatWithSystemPrompt方法调用失败，耗时: {}ms，系统提示: {}，用户消息: {}，错误信息: {}", 
                     duration, truncatedSystemPrompt, truncatedUserMessage, e.getMessage(), e);
             throw e;
         }
