@@ -90,15 +90,21 @@ public class ChatbotService {
                 throw new IllegalArgumentException("消息内容不能为空");
             }
             
-            ChatClient.ChatClientRequestSpec spec = chatClient.prompt()
-                    .user(userMessage);
-            
-            // 如果有系统提示词，则添加
-            if (StringUtils.isNotBlank(systemPrompt)) {
-                spec = spec.system(systemPrompt);
-            }
-            
-            String response = spec.call().content();
+//            ChatClient.ChatClientRequestSpec spec = chatClient.prompt()
+//                    .user(userMessage);
+//
+//            // 如果有系统提示词，则添加
+//            if (StringUtils.isNotBlank(systemPrompt)) {
+//                spec = spec.system(systemPrompt);
+//            }
+//
+//            String response = spec.call().content();
+
+            String response = chatClient.prompt()
+                    .user(userMessage)
+                    .system(systemPrompt)
+                    .call()
+                    .content();
             
             // 判空处理
             if (StringUtils.isBlank(response)) {

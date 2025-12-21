@@ -1,9 +1,13 @@
 package org.alanzheng.demo.springaidemo.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import org.alanzheng.demo.springaidemo.dto.ActorsFilms;
 import org.alanzheng.demo.springaidemo.dto.ChatRequest;
 import org.alanzheng.demo.springaidemo.dto.ChatResponse;
+import org.alanzheng.demo.springaidemo.dto.StructuredResponse;
+import org.alanzheng.demo.springaidemo.dto.WeatherInfo;
 import org.alanzheng.demo.springaidemo.service.ChatbotService;
+import org.alanzheng.demo.springaidemo.service.StructuredOutputService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,10 +25,14 @@ import java.util.UUID;
 public class ChatController {
     
     private final ChatbotService chatbotService;
+    private final StructuredOutputService structuredOutputService;
     
-    public ChatController(ChatbotService chatbotService) {
+    public ChatController(ChatbotService chatbotService, 
+                         StructuredOutputService structuredOutputService) {
         Objects.requireNonNull(chatbotService, "ChatbotService不能为空");
+        Objects.requireNonNull(structuredOutputService, "StructuredOutputService不能为空");
         this.chatbotService = chatbotService;
+        this.structuredOutputService = structuredOutputService;
     }
     
     /**
@@ -136,6 +144,110 @@ public class ChatController {
             long duration = System.currentTimeMillis() - startTime;
             log.error("带系统提示的聊天请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * 结构化输出示例：获取演员及其电影列表
+     * 演示Spring AI的基础结构化输出功能
+     * 
+     * @param actorName 演员姓名
+     * @param movieCount 电影数量（默认5部）
+     * @return 结构化响应，包含演员及其电影列表
+     */
+    @GetMapping("/structured/actors-films")
+    public ResponseEntity<StructuredResponse<ActorsFilms>> getActorsFilms(
+            @RequestParam String actorName,
+            @RequestParam(defaultValue = "5") int movieCount) {
+        
+        long startTime = System.currentTimeMillis();
+        log.info("收到获取演员电影列表请求，演员: {}，数量: {}", actorName, movieCount);
+        
+        if (StringUtils.isBlank(actorName)) {
+            log.warn("获取演员电影列表请求参数验证失败，演员姓名为空");
+            StructuredResponse<ActorsFilms> errorResponse = StructuredResponse.<ActorsFilms>builder()
+                    .success(false)
+                    .errorMessage("演员姓名不能为空")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        try {
+            ActorsFilms actorsFilms = structuredOutputService.getActorsFilms(actorName, movieCount);
+            
+            StructuredResponse<ActorsFilms> response = StructuredResponse.<ActorsFilms>builder()
+                    .data(actorsFilms)
+                    .success(true)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("获取演员电影列表请求处理成功，总耗时: {}ms，演员: {}", duration, actorName);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("获取演员电影列表请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            
+            StructuredResponse<ActorsFilms> errorResponse = StructuredResponse.<ActorsFilms>builder()
+                    .success(false)
+                    .errorMessage("处理请求时发生错误: " + e.getMessage())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+    
+    /**
+     * 结构化输出 + Advisors API示例：获取天气信息
+     * 演示Spring AI的结构化输出和Advisors API的结合使用
+     * 使用StructuredOutputValidationAdvisor确保输出的有效性，自动重试
+     * 
+     * @param city 城市名称
+     * @param maxRetryAttempts 最大重试次数（默认3次）
+     * @return 结构化响应，包含天气信息
+     */
+    @GetMapping("/structured/weather")
+    public ResponseEntity<StructuredResponse<WeatherInfo>> getWeatherInfo(
+            @RequestParam String city,
+            @RequestParam(defaultValue = "3") int maxRetryAttempts) {
+        
+        long startTime = System.currentTimeMillis();
+        log.info("收到获取天气信息请求，城市: {}，最大重试次数: {}", city, maxRetryAttempts);
+        
+        if (StringUtils.isBlank(city)) {
+            log.warn("获取天气信息请求参数验证失败，城市名称为空");
+            StructuredResponse<WeatherInfo> errorResponse = StructuredResponse.<WeatherInfo>builder()
+                    .success(false)
+                    .errorMessage("城市名称不能为空")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        try {
+            WeatherInfo weatherInfo = structuredOutputService.getWeatherInfo(city, maxRetryAttempts);
+            
+            StructuredResponse<WeatherInfo> response = StructuredResponse.<WeatherInfo>builder()
+                    .data(weatherInfo)
+                    .success(true)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("获取天气信息请求处理成功，总耗时: {}ms，城市: {}，温度: {}℃", 
+                    duration, weatherInfo.city(), weatherInfo.temperature());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("获取天气信息请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            
+            StructuredResponse<WeatherInfo> errorResponse = StructuredResponse.<WeatherInfo>builder()
+                    .success(false)
+                    .errorMessage("处理请求时发生错误: " + e.getMessage())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
 }
