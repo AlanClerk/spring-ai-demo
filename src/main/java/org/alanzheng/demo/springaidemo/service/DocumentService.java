@@ -76,19 +76,16 @@ public class DocumentService {
                 return 0;
             }
             
-            // 将文档分割成块
-            List<Document> splitDocuments = textSplitter.apply(allDocuments);
-            log.info("文档分割完成，原始文档数: {}，分割后文档块数: {}", 
-                    allDocuments.size(), splitDocuments.size());
+            log.info("读取到 {} 个文档，准备直接上传（不分割）", allDocuments.size());
             
-            // 添加到向量存储
-            vectorStore.add(splitDocuments);
+            // 直接添加到向量存储（不分割）
+            vectorStore.add(allDocuments);
             
             long duration = System.currentTimeMillis() - startTime;
-            log.info("知识库文档加载完成，耗时: {}ms，加载文档数: {}，文档块数: {}", 
-                    duration, allDocuments.size(), splitDocuments.size());
+            log.info("知识库文档加载完成，耗时: {}ms，加载文档数: {}", 
+                    duration, allDocuments.size());
             
-            return splitDocuments.size();
+            return allDocuments.size();
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("加载知识库文档失败，耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
@@ -122,18 +119,15 @@ public class DocumentService {
                 return 0;
             }
             
-            // 将文档分割成块
-            List<Document> splitDocuments = textSplitter.apply(documents);
-            log.info("文档分割完成，原始文档数: {}，分割后文档块数: {}", 
-                    documents.size(), splitDocuments.size());
+            log.info("读取到 {} 个文档，准备直接上传（不分割）", documents.size());
             
-            // 添加到向量存储
-            vectorStore.add(splitDocuments);
+            // 直接添加到向量存储（不分割）
+            vectorStore.add(documents);
             
             long duration = System.currentTimeMillis() - startTime;
-            log.info("单个文档加载完成，耗时: {}ms，文档块数: {}", duration, splitDocuments.size());
+            log.info("单个文档加载完成，耗时: {}ms，文档数: {}", duration, documents.size());
             
-            return splitDocuments.size();
+            return documents.size();
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
             log.error("加载单个文档失败，耗时: {}ms，路径: {}，错误信息: {}", 
