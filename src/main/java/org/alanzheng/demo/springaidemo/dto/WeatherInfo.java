@@ -10,9 +10,13 @@ public record WeatherInfo(
          */
         String city,
         /**
-         * 温度（摄氏度）
+         * 月份（1-12）
          */
-        Double temperature,
+        Integer month,
+        /**
+         * 平均温度（摄氏度）
+         */
+        Double averageTemperature,
         /**
          * 天气描述
          */

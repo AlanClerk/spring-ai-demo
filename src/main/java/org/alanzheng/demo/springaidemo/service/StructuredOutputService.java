@@ -86,10 +86,11 @@ public class StructuredOutputService {
      * 使用StructuredOutputValidationAdvisor确保输出的有效性，自动重试
      * 
      * @param city 城市名称
+     * @param month 月份（1-12）
      * @return 天气信息
      */
-    public WeatherInfo getWeatherInfo(String city) {
-        return getWeatherInfo(city, DEFAULT_MAX_RETRY_ATTEMPTS);
+    public WeatherInfo getWeatherInfo(String city, int month) {
+        return getWeatherInfo(city, month, DEFAULT_MAX_RETRY_ATTEMPTS);
     }
     
     /**
@@ -97,16 +98,20 @@ public class StructuredOutputService {
      * 使用StructuredOutputValidationAdvisor确保输出的有效性，自动重试
      * 
      * @param city 城市名称
+     * @param month 月份（1-12）
      * @param maxRetryAttempts 最大重试次数
      * @return 天气信息
      */
-    public WeatherInfo getWeatherInfo(String city, int maxRetryAttempts) {
+    public WeatherInfo getWeatherInfo(String city, int month, int maxRetryAttempts) {
         long startTime = System.currentTimeMillis();
-        log.info("开始获取天气信息，城市: {}，最大重试次数: {}", city, maxRetryAttempts);
+        log.info("开始获取天气信息，城市: {}，月份: {}，最大重试次数: {}", city, month, maxRetryAttempts);
         
         try {
             if (StringUtils.isBlank(city)) {
                 throw new IllegalArgumentException("城市名称不能为空");
+            }
+            if (month < 1 || month > 12) {
+                throw new IllegalArgumentException("月份必须在1-12之间");
             }
             if (maxRetryAttempts < 1) {
                 throw new IllegalArgumentException("最大重试次数必须大于0");
@@ -124,7 +129,10 @@ public class StructuredOutputService {
                     .defaultAdvisors(validationAdvisor)
                     .build();
             
-            String prompt = String.format("%s今天天气怎么样？请提供城市名称、温度（摄氏度）和天气描述。", city);
+            // 构建包含月份信息的prompt，要求返回该城市的月平均气温
+            String prompt = String.format(
+                    "请告诉我%s在%d月份的平均气温是多少？请提供城市名称、月份、平均温度（摄氏度）和该月份的天气特点描述。", 
+                    city, month);
             
             WeatherInfo result = chatClient.prompt()
                     .user(prompt)
@@ -137,14 +145,14 @@ public class StructuredOutputService {
             }
             
             long duration = System.currentTimeMillis() - startTime;
-            log.info("获取天气信息成功，耗时: {}ms，城市: {}，温度: {}℃，描述: {}", 
-                    duration, result.city(), result.temperature(), result.description());
+            log.info("获取天气信息成功，耗时: {}ms，城市: {}，月份: {}，平均温度: {}℃，描述: {}", 
+                    duration, result.city(), result.month(), result.averageTemperature(), result.description());
             
             return result;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("获取天气信息失败，耗时: {}ms，城市: {}，错误信息: {}", 
-                    duration, city, e.getMessage(), e);
+            log.error("获取天气信息失败，耗时: {}ms，城市: {}，月份: {}，错误信息: {}", 
+                    duration, city, month, e.getMessage(), e);
             throw e;
         }
     }

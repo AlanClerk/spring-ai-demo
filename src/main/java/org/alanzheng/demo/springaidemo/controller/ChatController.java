@@ -204,16 +204,18 @@ public class ChatController {
      * 使用StructuredOutputValidationAdvisor确保输出的有效性，自动重试
      * 
      * @param city 城市名称
+     * @param month 月份（1-12）
      * @param maxRetryAttempts 最大重试次数（默认3次）
      * @return 结构化响应，包含天气信息
      */
     @GetMapping("/structured/weather")
     public ResponseEntity<StructuredResponse<WeatherInfo>> getWeatherInfo(
             @RequestParam String city,
+            @RequestParam int month,
             @RequestParam(defaultValue = "3") int maxRetryAttempts) {
         
         long startTime = System.currentTimeMillis();
-        log.info("收到获取天气信息请求，城市: {}，最大重试次数: {}", city, maxRetryAttempts);
+        log.info("收到获取天气信息请求，城市: {}，月份: {}，最大重试次数: {}", city, month, maxRetryAttempts);
         
         if (StringUtils.isBlank(city)) {
             log.warn("获取天气信息请求参数验证失败，城市名称为空");
@@ -225,8 +227,18 @@ public class ChatController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
         
+        if (month < 1 || month > 12) {
+            log.warn("获取天气信息请求参数验证失败，月份无效: {}", month);
+            StructuredResponse<WeatherInfo> errorResponse = StructuredResponse.<WeatherInfo>builder()
+                    .success(false)
+                    .errorMessage("月份必须在1-12之间")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
         try {
-            WeatherInfo weatherInfo = structuredOutputService.getWeatherInfo(city, maxRetryAttempts);
+            WeatherInfo weatherInfo = structuredOutputService.getWeatherInfo(city, month, maxRetryAttempts);
             
             StructuredResponse<WeatherInfo> response = StructuredResponse.<WeatherInfo>builder()
                     .data(weatherInfo)
@@ -235,8 +247,8 @@ public class ChatController {
                     .build();
             
             long duration = System.currentTimeMillis() - startTime;
-            log.info("获取天气信息请求处理成功，总耗时: {}ms，城市: {}，温度: {}℃", 
-                    duration, weatherInfo.city(), weatherInfo.temperature());
+            log.info("获取天气信息请求处理成功，总耗时: {}ms，城市: {}，月份: {}，平均温度: {}℃", 
+                    duration, weatherInfo.city(), weatherInfo.month(), weatherInfo.averageTemperature());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
