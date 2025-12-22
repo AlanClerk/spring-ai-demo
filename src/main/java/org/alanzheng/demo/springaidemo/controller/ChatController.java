@@ -13,10 +13,12 @@ import org.alanzheng.demo.springaidemo.service.DocumentService;
 import org.alanzheng.demo.springaidemo.service.RagService;
 import org.alanzheng.demo.springaidemo.service.StructuredOutputService;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -33,19 +35,23 @@ public class ChatController {
     private final StructuredOutputService structuredOutputService;
     private final RagService ragService;
     private final DocumentService documentService;
+    private final VectorStore vectorStore;
     
     public ChatController(ChatbotService chatbotService, 
                          StructuredOutputService structuredOutputService,
                          RagService ragService,
-                         DocumentService documentService) {
+                         DocumentService documentService,
+                         VectorStore vectorStore) {
         Objects.requireNonNull(chatbotService, "ChatbotService不能为空");
         Objects.requireNonNull(structuredOutputService, "StructuredOutputService不能为空");
         Objects.requireNonNull(ragService, "RagService不能为空");
         Objects.requireNonNull(documentService, "DocumentService不能为空");
+        Objects.requireNonNull(vectorStore, "VectorStore不能为空");
         this.chatbotService = chatbotService;
         this.structuredOutputService = structuredOutputService;
         this.ragService = ragService;
         this.documentService = documentService;
+        this.vectorStore = vectorStore;
     }
     
     /**
@@ -350,6 +356,60 @@ public class ChatController {
             log.error("简单RAG问答请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body("处理请求时发生错误: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 测试上传接口：上传一句话到向量存储
+     * 用于测试向量化和存储功能是否正常
+     * 
+     * @param text 要上传的文本
+     * @return 上传结果
+     */
+    @PostMapping("/rag/test-upload")
+    public ResponseEntity<StructuredResponse<String>> testUploadText(@RequestParam String text) {
+        long startTime = System.currentTimeMillis();
+        log.info("收到测试上传请求，文本: {}", text);
+        
+        if (StringUtils.isBlank(text)) {
+            log.warn("测试上传请求参数验证失败，文本为空");
+            StructuredResponse<String> errorResponse = StructuredResponse.<String>builder()
+                    .success(false)
+                    .errorMessage("文本内容不能为空")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        try {
+            // 创建文档对象
+            Document document = new Document(text);
+            document.getMetadata().put("source", "测试上传");
+            document.getMetadata().put("type", "test");
+            document.getMetadata().put("timestamp", System.currentTimeMillis());
+            
+            // 上传到向量存储（会自动调用阿里云 Embedding API 进行向量化）
+            vectorStore.add(Collections.singletonList(document));
+            
+            StructuredResponse<String> response = StructuredResponse.<String>builder()
+                    .data("文本上传成功！已向量化并存储到阿里云")
+                    .success(true)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("测试上传请求处理成功，总耗时: {}ms，文本长度: {}", duration, text.length());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("测试上传请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            
+            StructuredResponse<String> errorResponse = StructuredResponse.<String>builder()
+                    .success(false)
+                    .errorMessage("上传失败: " + e.getMessage())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
     
