@@ -5,12 +5,11 @@ import org.alanzheng.demo.springaidemo.service.DocumentService;
 import org.alanzheng.demo.springaidemo.service.RagService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.mcp.annotation.Tool;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * MCP 工具类
@@ -36,7 +35,7 @@ public class McpTools {
      * 
      * @return 加载的文档数量
      */
-    @Tool("加载知识库中的所有文档到向量存储。返回加载的文档数量。")
+    @Tool(description = "加载知识库中的所有文档到向量存储。返回加载的文档数量。")
     public String loadAllDocuments() {
         try {
             log.info("MCP工具调用：加载所有文档");
@@ -54,7 +53,7 @@ public class McpTools {
      * @param filePath 文件路径
      * @return 加载结果
      */
-    @Tool("加载指定文件到向量存储。参数：filePath - 文件的完整路径。返回加载的文档数量。")
+    @Tool(description = "加载指定文件到向量存储。参数：filePath - 文件的完整路径。返回加载的文档数量。")
     public String loadDocument(String filePath) {
         try {
             if (StringUtils.isBlank(filePath)) {
@@ -76,7 +75,7 @@ public class McpTools {
      * @param question 用户问题
      * @return AI回答
      */
-    @Tool("基于知识库回答用户问题。使用RAG（检索增强生成）技术，从知识库中检索相关信息并生成回答。参数：question - 用户的问题。")
+    @Tool(description = "基于知识库回答用户问题。使用RAG（检索增强生成）技术，从知识库中检索相关信息并生成回答。参数：question - 用户的问题。")
     public String answerQuestion(String question) {
         try {
             if (StringUtils.isBlank(question)) {
@@ -105,7 +104,7 @@ public class McpTools {
      * @param topK 返回的文档数量，默认为4
      * @return 检索到的文档摘要
      */
-    @Tool("从知识库中检索与查询相关的文档。参数：query - 查询文本；topK - 返回的文档数量（可选，默认4）。返回检索到的文档摘要。")
+    @Tool(description = "从知识库中检索与查询相关的文档。参数：query - 查询文本；topK - 返回的文档数量（可选，默认4）。返回检索到的文档摘要。")
     public String searchDocuments(String query, Integer topK) {
         try {
             if (StringUtils.isBlank(query)) {
@@ -131,10 +130,13 @@ public class McpTools {
                 String source = doc.getMetadata().getOrDefault("source", "未知来源").toString();
                 
                 // 截取内容前200个字符作为摘要
-                String summary = content.length() > 200 
-                    ? content.substring(0, 200) + "..." 
-                    : content;
-                
+                String summary = null;
+                if (content != null) {
+                    summary = content.length() > 200
+                        ? content.substring(0, 200) + "..."
+                        : content;
+                }
+
                 result.append(String.format("文档 %d:\n", i + 1));
                 result.append(String.format("来源: %s\n", source));
                 result.append(String.format("内容摘要: %s\n\n", summary));
@@ -145,17 +147,6 @@ public class McpTools {
             log.error("检索文档失败，查询: {}", query, e);
             return "检索文档失败: " + e.getMessage();
         }
-    }
-    
-    /**
-     * 检索知识库文档工具（简化版，不指定topK）
-     * 
-     * @param query 查询文本
-     * @return 检索到的文档摘要
-     */
-    @Tool("从知识库中检索与查询相关的文档（默认返回4个）。参数：query - 查询文本。")
-    public String searchDocuments(String query) {
-        return searchDocuments(query, 4);
     }
 }
 

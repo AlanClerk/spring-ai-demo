@@ -6,6 +6,7 @@ import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 import java.util.Objects;
 
@@ -25,7 +26,7 @@ public class McpConfig {
      * @return 工具回调提供者
      */
     @Bean
-    public ToolCallbackProvider toolCallbackProvider(McpTools mcpTools) {
+    public ToolCallbackProvider toolCallbackProvider(@Lazy McpTools mcpTools) {
         Objects.requireNonNull(mcpTools, "McpTools不能为空");
         
         log.info("注册 MCP 工具回调提供者");

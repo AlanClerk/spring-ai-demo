@@ -262,12 +262,7 @@ public class McpController {
         
         try {
             long startTime = System.currentTimeMillis();
-            String result;
-            if (Objects.nonNull(topK)) {
-                result = mcpTools.searchDocuments(query, topK);
-            } else {
-                result = mcpTools.searchDocuments(query);
-            }
+            String result = mcpTools.searchDocuments(query, topK);
             long duration = System.currentTimeMillis() - startTime;
             
             McpToolResult toolResult = McpToolResult.builder()
