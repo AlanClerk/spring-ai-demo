@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -35,7 +36,6 @@ public class AgentService {
     
     private ChatClient chatClient;
     private final ChatModel chatModel;
-    private final ToolCallbackProvider toolCallbackProvider;
     private final McpTools mcpTools;
     
     @Value("${spring.ai.agent.system-prompt:}")
@@ -45,18 +45,14 @@ public class AgentService {
      * 构造函数
      * 
      * @param chatModel ChatModel 实例
-     * @param toolCallbackProvider 工具回调提供者，用于注册 MCP 工具
      * @param mcpTools MCP 工具实例
      */
     public AgentService(@Qualifier("openAiChatModel") ChatModel chatModel,
-                       @Lazy ToolCallbackProvider toolCallbackProvider,
                        @Lazy McpTools mcpTools) {
         Objects.requireNonNull(chatModel, "ChatModel不能为空");
-        Objects.requireNonNull(toolCallbackProvider, "ToolCallbackProvider不能为空");
         Objects.requireNonNull(mcpTools, "McpTools不能为空");
         
         this.chatModel = chatModel;
-        this.toolCallbackProvider = toolCallbackProvider;
         this.mcpTools = mcpTools;
         
         log.info("AgentService 初始化完成");
@@ -72,6 +68,23 @@ public class AgentService {
         if (chatClient == null) {
             synchronized (this) {
                 if (chatClient == null) {
+                    // 先强制初始化 mcpTools，确保 @Tool 方法可以被扫描到
+                    // 通过访问 hashCode() 来触发懒加载代理的实际初始化
+                    if (mcpTools != null) {
+                        try {
+                            // 触发代理对象的初始化，确保 McpTools 已经被创建
+                            // 访问 hashCode() 会触发代理对象的实际初始化
+                            mcpTools.hashCode();
+                        } catch (Exception e) {
+                            log.warn("初始化 McpTools 时出现异常", e);
+                        }
+                    }
+                    
+                    // 在运行时创建 ToolCallbackProvider，此时 mcpTools 已经初始化
+                    ToolCallbackProvider toolCallbackProvider = MethodToolCallbackProvider.builder()
+                            .toolObjects(mcpTools)
+                            .build();
+                    
                     // 构建 ChatClient，集成工具支持
                     // 通过 ToolCallbackProvider 注册工具
                     chatClient = ChatClient.builder(chatModel)

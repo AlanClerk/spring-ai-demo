@@ -9,6 +9,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -31,7 +32,8 @@ public class RagService {
                     请根据以下知识库内容回答用户的问题。如果知识库中没有相关信息，请如实说明。
                     回答要准确、简洁，并引用知识库中的具体内容。""";
     
-    private final ChatClient chatClient;
+    private ChatClient chatClient;
+    private final ChatModel chatModel;
     private final VectorStore vectorStore;
     
     @Value("${spring.ai.rag.top-k:4}")
@@ -46,12 +48,30 @@ public class RagService {
     /**
      * 构造函数
      */
-    public RagService(@Qualifier("openAiChatModel") ChatModel chatModel, 
+    public RagService(@Qualifier("openAiChatModel") @Lazy ChatModel chatModel, 
                      VectorStore vectorStore) {
         Objects.requireNonNull(chatModel, "ChatModel不能为空");
         Objects.requireNonNull(vectorStore, "VectorStore不能为空");
-        this.chatClient = ChatClient.builder(chatModel).build();
+        this.chatModel = chatModel;
         this.vectorStore = vectorStore;
+    }
+    
+    /**
+     * 获取或初始化 ChatClient
+     * 延迟初始化以避免循环依赖问题
+     * 
+     * @return ChatClient 实例
+     */
+    private ChatClient getChatClient() {
+        if (chatClient == null) {
+            synchronized (this) {
+                if (chatClient == null) {
+                    chatClient = ChatClient.builder(chatModel).build();
+                    log.info("RagService ChatClient 初始化完成");
+                }
+            }
+        }
+        return chatClient;
     }
     
     /**
@@ -98,7 +118,7 @@ public class RagService {
                     : DEFAULT_SYSTEM_PROMPT;
             
             // 3. 调用LLM生成回答
-            String answer = chatClient.prompt()
+            String answer = getChatClient().prompt()
                     .system(finalSystemPrompt)
                     .user("知识库内容：\n" + context + "\n\n用户问题：" + question)
                     .call()
