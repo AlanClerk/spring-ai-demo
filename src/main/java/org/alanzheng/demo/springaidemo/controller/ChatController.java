@@ -4,10 +4,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.alanzheng.demo.springaidemo.dto.ActorsFilms;
 import org.alanzheng.demo.springaidemo.dto.ChatRequest;
 import org.alanzheng.demo.springaidemo.dto.ChatResponse;
+import org.alanzheng.demo.springaidemo.dto.DocumentInfo;
+import org.alanzheng.demo.springaidemo.dto.RagRequest;
 import org.alanzheng.demo.springaidemo.dto.StructuredResponse;
 import org.alanzheng.demo.springaidemo.dto.WeatherInfo;
 import org.alanzheng.demo.springaidemo.service.ChatbotService;
+import org.alanzheng.demo.springaidemo.service.DocumentService;
+import org.alanzheng.demo.springaidemo.service.RagService;
 import org.alanzheng.demo.springaidemo.service.StructuredOutputService;
+import org.springframework.ai.document.Document;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,13 +31,21 @@ public class ChatController {
     
     private final ChatbotService chatbotService;
     private final StructuredOutputService structuredOutputService;
+    private final RagService ragService;
+    private final DocumentService documentService;
     
     public ChatController(ChatbotService chatbotService, 
-                         StructuredOutputService structuredOutputService) {
+                         StructuredOutputService structuredOutputService,
+                         RagService ragService,
+                         DocumentService documentService) {
         Objects.requireNonNull(chatbotService, "ChatbotService不能为空");
         Objects.requireNonNull(structuredOutputService, "StructuredOutputService不能为空");
+        Objects.requireNonNull(ragService, "RagService不能为空");
+        Objects.requireNonNull(documentService, "DocumentService不能为空");
         this.chatbotService = chatbotService;
         this.structuredOutputService = structuredOutputService;
+        this.ragService = ragService;
+        this.documentService = documentService;
     }
     
     /**
@@ -255,6 +268,227 @@ public class ChatController {
             log.error("获取天气信息请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
             
             StructuredResponse<WeatherInfo> errorResponse = StructuredResponse.<WeatherInfo>builder()
+                    .success(false)
+                    .errorMessage("处理请求时发生错误: " + e.getMessage())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+    
+    /**
+     * RAG问答接口
+     * 基于知识库检索并回答问题
+     * 
+     * @param request RAG请求
+     * @return AI回答
+     */
+    @PostMapping("/rag")
+    public ResponseEntity<ChatResponse> ragAnswer(@RequestBody RagRequest request) {
+        long startTime = System.currentTimeMillis();
+        log.info("收到RAG问答请求，问题: {}", 
+                Objects.nonNull(request) ? request.getQuestion() : "null");
+        
+        if (Objects.isNull(request) || StringUtils.isBlank(request.getQuestion())) {
+            log.warn("RAG问答请求参数验证失败，请求对象或问题为空");
+            return ResponseEntity.badRequest().build();
+        }
+        
+        try {
+            String question = request.getQuestion();
+            Integer topK = Objects.nonNull(request.getTopK()) ? request.getTopK() : null;
+            Double similarityThreshold = Objects.nonNull(request.getSimilarityThreshold()) 
+                    ? request.getSimilarityThreshold() : null;
+            
+            String answer;
+            if (Objects.nonNull(topK) && Objects.nonNull(similarityThreshold)) {
+                answer = ragService.answer(question, topK, similarityThreshold);
+            } else {
+                answer = ragService.answer(question);
+            }
+            
+            String conversationId = UUID.randomUUID().toString();
+            ChatResponse response = ChatResponse.builder()
+                    .reply(answer)
+                    .conversationId(conversationId)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("RAG问答请求处理成功，总耗时: {}ms，对话ID: {}", duration, conversationId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("RAG问答请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    /**
+     * 简单RAG问答接口（GET方式）
+     * 
+     * @param question 用户问题
+     * @return AI回答
+     */
+    @GetMapping("/rag")
+    public ResponseEntity<String> ragAnswerSimple(@RequestParam String question) {
+        long startTime = System.currentTimeMillis();
+        log.info("收到简单RAG问答请求，问题: {}", question);
+        
+        if (StringUtils.isBlank(question)) {
+            log.warn("简单RAG问答请求参数验证失败，问题为空");
+            return ResponseEntity.badRequest().body("问题不能为空");
+        }
+        
+        try {
+            String answer = ragService.answer(question);
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("简单RAG问答请求处理成功，总耗时: {}ms", duration);
+            return ResponseEntity.ok(answer);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("简单RAG问答请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body("处理请求时发生错误: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 加载知识库文档接口
+     * 从配置的知识库目录加载所有文档到向量存储
+     * 
+     * @return 加载的文档块数量
+     */
+    @PostMapping("/rag/load-documents")
+    public ResponseEntity<StructuredResponse<Integer>> loadDocuments() {
+        long startTime = System.currentTimeMillis();
+        log.info("收到加载知识库文档请求");
+        
+        try {
+            int documentCount = documentService.loadAllDocuments();
+            
+            StructuredResponse<Integer> response = StructuredResponse.<Integer>builder()
+                    .data(documentCount)
+                    .success(true)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("加载知识库文档请求处理成功，总耗时: {}ms，加载文档块数: {}", duration, documentCount);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("加载知识库文档请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            
+            StructuredResponse<Integer> errorResponse = StructuredResponse.<Integer>builder()
+                    .success(false)
+                    .errorMessage("处理请求时发生错误: " + e.getMessage())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+    
+    /**
+     * 加载单个文档接口
+     * 
+     * @param filePath 文件路径
+     * @return 加载的文档块数量
+     */
+    @PostMapping("/rag/load-document")
+    public ResponseEntity<StructuredResponse<Integer>> loadDocument(@RequestParam String filePath) {
+        long startTime = System.currentTimeMillis();
+        log.info("收到加载单个文档请求，文件路径: {}", filePath);
+        
+        if (StringUtils.isBlank(filePath)) {
+            log.warn("加载单个文档请求参数验证失败，文件路径为空");
+            StructuredResponse<Integer> errorResponse = StructuredResponse.<Integer>builder()
+                    .success(false)
+                    .errorMessage("文件路径不能为空")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        try {
+            int documentCount = documentService.loadDocument(filePath);
+            
+            StructuredResponse<Integer> response = StructuredResponse.<Integer>builder()
+                    .data(documentCount)
+                    .success(true)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("加载单个文档请求处理成功，总耗时: {}ms，加载文档块数: {}", duration, documentCount);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("加载单个文档请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            
+            StructuredResponse<Integer> errorResponse = StructuredResponse.<Integer>builder()
+                    .success(false)
+                    .errorMessage("处理请求时发生错误: " + e.getMessage())
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+    
+    /**
+     * 检索文档接口
+     * 根据查询文本检索相关文档（不生成回答）
+     * 
+     * @param query 查询文本
+     * @param topK 返回的文档数量（默认4）
+     * @return 相关文档列表
+     */
+    @GetMapping("/rag/search")
+    public ResponseEntity<StructuredResponse<java.util.List<DocumentInfo>>> searchDocuments(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "4") int topK) {
+        
+        long startTime = System.currentTimeMillis();
+        log.info("收到文档检索请求，查询: {}，topK: {}", query, topK);
+        
+        if (StringUtils.isBlank(query)) {
+            log.warn("文档检索请求参数验证失败，查询文本为空");
+            StructuredResponse<java.util.List<DocumentInfo>> errorResponse = 
+                    StructuredResponse.<java.util.List<DocumentInfo>>builder()
+                    .success(false)
+                    .errorMessage("查询文本不能为空")
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+        
+        try {
+            java.util.List<Document> documents = ragService.searchDocuments(query, topK);
+            
+            java.util.List<DocumentInfo> documentInfos = documents.stream()
+                    .map(doc -> DocumentInfo.builder()
+                            .content(doc.getText())
+                            .metadata(doc.getMetadata())
+                            .source(doc.getMetadata().getOrDefault("source", "未知来源").toString())
+                            .build())
+                    .toList();
+            
+            StructuredResponse<java.util.List<DocumentInfo>> response = 
+                    StructuredResponse.<java.util.List<DocumentInfo>>builder()
+                    .data(documentInfos)
+                    .success(true)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("文档检索请求处理成功，总耗时: {}ms，检索到文档数: {}", duration, documentInfos.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("文档检索请求处理失败，总耗时: {}ms，错误信息: {}", duration, e.getMessage(), e);
+            
+            StructuredResponse<java.util.List<DocumentInfo>> errorResponse = 
+                    StructuredResponse.<java.util.List<DocumentInfo>>builder()
                     .success(false)
                     .errorMessage("处理请求时发生错误: " + e.getMessage())
                     .timestamp(System.currentTimeMillis())
