@@ -88,7 +88,7 @@ public class AgentService {
                     // 构建 ChatClient，集成工具支持
                     // 通过 ToolCallbackProvider 注册工具
                     chatClient = ChatClient.builder(chatModel)
-                            .defaultTools(toolCallbackProvider)
+                            .defaultToolCallbacks(toolCallbackProvider)
                             .build();
                     log.info("ChatClient 初始化完成，已集成 MCP 工具");
                 }
