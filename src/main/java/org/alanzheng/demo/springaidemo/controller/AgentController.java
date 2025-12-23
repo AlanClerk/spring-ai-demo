@@ -147,7 +147,7 @@ public class AgentController {
     }
     
     /**
-     * 获取 Agent 信息
+     * 获取 Agent 信息（纯说明与演示）
      * 
      * @return Agent 信息
      */
