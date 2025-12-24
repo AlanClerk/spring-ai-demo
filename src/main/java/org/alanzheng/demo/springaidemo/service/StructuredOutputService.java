@@ -60,7 +60,6 @@ public class StructuredOutputService {
             ActorsFilms result = chatClient.prompt()
                     .user(prompt)
                     .call()
-                    /// 提前定义了一个public record ActorsFilms对象
                     /// 添加.entity()能够做到【同步调用】后的【相应转换】
                     .entity(ActorsFilms.class);  // 直接映射到POJO
             
@@ -71,8 +70,8 @@ public class StructuredOutputService {
             
             long duration = System.currentTimeMillis() - startTime;
             log.info("获取演员电影列表成功，耗时: {}ms，演员: {}，电影数量: {}", 
-                    duration, result.actor(), 
-                    Objects.nonNull(result.movies()) ? result.movies().size() : 0);
+                    duration, result.getActor(), 
+                    Objects.nonNull(result.getMovies()) ? result.getMovies().size() : 0);
             
             return result;
         } catch (Exception e) {
