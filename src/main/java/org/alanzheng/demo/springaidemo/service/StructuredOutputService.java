@@ -60,6 +60,8 @@ public class StructuredOutputService {
             ActorsFilms result = chatClient.prompt()
                     .user(prompt)
                     .call()
+                    /// 提前定义了一个public record ActorsFilms对象
+                    /// 添加.entity()能够做到【同步调用】后的【相应转换】
                     .entity(ActorsFilms.class);  // 直接映射到POJO
             
             // 判空处理
@@ -117,14 +119,14 @@ public class StructuredOutputService {
                 throw new IllegalArgumentException("最大重试次数必须大于0");
             }
             
-            // 创建验证Advisor，用于确保结构化输出的有效性
+            /// 创建验证Advisor，用于确保结构化输出的有效性
             StructuredOutputValidationAdvisor validationAdvisor = 
                     StructuredOutputValidationAdvisor.builder()
                     .outputType(WeatherInfo.class)          // 指定目标类型
                     .maxRepeatAttempts(maxRetryAttempts)    // 最多重试次数
                     .build();
             
-            // 构建ChatClient并注入Advisor
+            /// 构建ChatClient并注入Advisor
             ChatClient chatClient = ChatClient.builder(chatModel)
                     .defaultAdvisors(validationAdvisor)
                     .build();
